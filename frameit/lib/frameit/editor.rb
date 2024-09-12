@@ -418,7 +418,24 @@ module Frameit
     def keyword_padding
       (actual_font_size('keyword') / 3.0).round
     end
-
+    # This will get the language for the screenshot
+    def get_screenshot_language
+      # Split the path and look for the language code directory
+      path_components = @screenshot.path.split(File::SEPARATOR)
+      language_dir_index = path_components.index('images')
+      
+      if language_dir_index && language_dir_index > 0
+        language_code = path_components[language_dir_index - 1]
+        
+        # Validate the language code format and return the first two letters
+        if language_code =~ /^([a-z]{2})(-[A-Z]{2})?$/
+          return language_code[0, 2]  # Return just the first two letters
+        end
+      end
+      
+      # If we couldn't find or validate a language code, default to 'en'
+      'en'
+    end
     # This will build up to 2 individual images with the title and optional keyword, which will then be added to the real image
     def build_text_images(max_width, max_height)
       words = [:keyword, :title].keep_if { |a| fetch_text(a) } # optional keyword/title
@@ -426,6 +443,12 @@ module Frameit
       trim_boxes = {}
       top_vertical_trim_offset = Float::INFINITY # Init at a large value, as the code will search for a minimal value.
       bottom_vertical_trim_offset = 0
+
+      rtl_languages = ['ar', 'he', 'fa', 'ur']
+
+      language = get_screenshot_language
+      UI.message("Detected language for screenshot: #{language}")
+
       words.each do |key|
         # Create empty background
         empty_path = File.join(Frameit::ROOT, "lib/assets/empty.png")
@@ -443,6 +466,18 @@ module Frameit
 
         text.gsub!('\n', "\n")
         text.gsub!(/(?<!\\)(')/) { |s| "\\#{s}" } # escape unescaped apostrophes with a backslash
+
+        if rtl_languages.include?(language)
+          # Use bidi for all RTL languages
+          bidi = Bidi.new
+          if language != 'he'
+            # For Arabic script, apply reshaping and then bidirectional transformation
+            text = bidi.to_visual(reshape("#{text}"))
+          else
+            # For Hebrew, only apply bidirectional transformation
+            text = bidi.to_visual(text)
+          end
+        end
 
         interline_spacing = @config['interline_spacing']
 
