@@ -144,7 +144,12 @@ module Screengrab
         FastlaneCore::ConfigItem.new(key: :adb_host,
                                      env_name: 'SCREENGRAB_ADB_HOST',
                                      description: "Configure the host used by adb to connect, allows running on remote devices farm",
-                                     optional: true)
+                                     optional: true),
+        FastlaneCore::ConfigItem.new(key: :html_template,
+                                     env_name: 'SCREENGRAB_HTML_TEMPLATE',
+                                     short_option: "-t",
+                                     optional: true,
+                                     description: "A path to screenshots.html template"),
       ]
     end
   end
