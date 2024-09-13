@@ -423,16 +423,16 @@ module Frameit
       # Split the path and look for the language code directory
       path_components = @screenshot.path.split(File::SEPARATOR)
       language_dir_index = path_components.index('images')
-      
+
       if language_dir_index && language_dir_index > 0
         language_code = path_components[language_dir_index - 1]
-        
+
         # Validate the language code format and return the first two letters
         if language_code =~ /^([a-z]{2})(-[A-Z]{2})?$/
           return language_code[0, 2]  # Return just the first two letters
         end
       end
-      
+
       # If we couldn't find or validate a language code, default to 'en'
       'en'
     end
@@ -469,6 +469,8 @@ module Frameit
 
         if rtl_languages.include?(language)
           # Use bidi for all RTL languages
+          $weakHashMap = WeakHashMap.new
+          $mirrorMap = WeakHashMap.new
           bidi = Bidi.new
           if language != 'he'
             # For Arabic script, apply reshaping and then bidirectional transformation
