@@ -17,11 +17,13 @@ module Frameit
     attr_accessor :frame # the frame of the device
     attr_accessor :image # the current image used for editing
     attr_accessor :space_to_device
+    attr_accessor :aspect_ratio
 
     def initialize(screenshot, config, debug_mode = false)
       @screenshot = screenshot
       @config = config
       self.debug_mode = debug_mode
+      self.aspect_ratio = @config['aspect_ratio'] unless @config['aspect_ratio'].nil?
     end
 
     def frame!
@@ -154,6 +156,30 @@ module Frameit
     # Everything below is related to title, background, etc. and is not used in the easy mode
     #########################################################################################
 
+    def calculate_new_dimensions
+      return [image.width, image.height] unless aspect_ratio
+      # Parse the aspect ratio
+      ratio_width, ratio_height = aspect_ratio.split(':').map(&:to_f)
+
+      # Ensure ratio is always in the format of larger:smaller
+      if ratio_width < ratio_height
+        ratio_width, ratio_height = ratio_height, ratio_width
+      end
+
+      # Calculate both possibilities
+      if image.width >= image.height
+        # Landscape or square orientation
+        new_width = image.width
+        new_height = ((image.width/ratio_width) / (image.height/ratio_height) * image.height).round
+      else
+        # Portrait orientation
+        new_height = image.height
+        new_width = ((image.height/ratio_width) / (image.width/ratio_height) * image.width).round
+      end
+
+      [new_width, new_height]
+    end
+
     # this is used to correct the 1:1 offset information
     # the offset information is stored to work for the template images
     # since we resize the template images to have higher quality screenshots
@@ -174,7 +200,8 @@ module Frameit
 
     # more complex mode: background, frame and title
     def complex_framing
-      background = generate_background
+      background = aspect_ratio ? generate_background_with_aspect_ratio : generate_background
+
 
       self.space_to_device = vertical_frame_padding
 
@@ -187,8 +214,8 @@ module Frameit
         put_into_frame
 
         # Decrease the size of the framed screenshot to fit into the defined padding + background
-        frame_width = background.width - horizontal_frame_padding * 2
-        frame_height = background.height - effective_text_height - vertical_frame_padding
+        frame_width = screenshot.size[0] - horizontal_frame_padding * 2
+        frame_height = background.size[1] - effective_text_height - vertical_frame_padding
 
         if @config['show_complete_frame']
           # calculate the final size of the screenshot to resize in one go
@@ -276,6 +303,19 @@ module Frameit
         background.resize("#{screenshot.size[0]}x#{screenshot.size[1]}^") # `^` says it should fill area
         background.merge!(["-gravity", "center", "-crop", "#{screenshot.size[0]}x#{screenshot.size[1]}+0+0"]) # crop from center
       end
+      background
+    end
+
+    def generate_background_with_aspect_ratio
+      background = MiniMagick::Image.open(@config['background'])
+      new_width, new_height = calculate_new_dimensions
+
+      # Resize background to cover the new dimensions
+      background.resize("#{new_width}x#{new_height}^")
+
+      # Crop the background to the exact new dimensions
+      background.merge!(["-gravity", "center", "-crop", "#{new_width}x#{new_height}+0+0"])
+
       background
     end
 
